@@ -33,11 +33,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn my_handler(e: CustomEvent, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
-    if e.first_name == "" {
-        error!("Empty first name in request {}", c.aws_request_id);
-        bail!("Empty first name");
-    }
+fn my_handler(e: serde_json::value::Value, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
 
     Ok(ApiGatewayOutput {
         status_code: 200,

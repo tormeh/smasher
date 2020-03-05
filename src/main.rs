@@ -13,8 +13,17 @@ struct CustomEvent {
 }
 
 #[derive(Serialize)]
-struct CustomOutput {
-    message: String,
+struct ApiGatewayOutput {
+    #[serde(rename = "statusCode")]
+    status_code: i32,
+    headers: Headers,
+    body: String,
+}
+
+#[derive(Serialize)]
+struct Headers {
+    #[serde(rename = "x-custom-header")]
+    x_custom_header: String
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -24,13 +33,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn my_handler(e: CustomEvent, c: Context) -> Result<CustomOutput, HandlerError> {
+fn my_handler(e: CustomEvent, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
     if e.first_name == "" {
         error!("Empty first name in request {}", c.aws_request_id);
         bail!("Empty first name");
     }
 
-    Ok(CustomOutput {
-        message: format!("Hello, {}!", e.first_name),
+    Ok(ApiGatewayOutput {
+        status_code: 200,
+        headers: Headers {
+            x_custom_header: "my custom header value".to_string()
+        },
+        body: format!("{{\"message\":\"Ready for some, ughhhhhhnfff...., SMASH?\"}}"),
     })
 }

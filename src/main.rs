@@ -70,7 +70,7 @@ struct SlackChallenge {
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-enum Message {
+enum InBody {
     CustomEvent(CustomEvent),
     SlackChallenge(SlackChallenge),
 }
@@ -85,7 +85,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn my_handler(input: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
     debug!("We received: {:?}", input.body);
-    match serde_json::from_str::<Message>(&input.body) {
+    match serde_json::from_str::<InBody>(&input.body) {
         Ok(message) => respond(&message, &input.headers),
         Err(err) => {
             error!("Couldn't parse: {}. Got: {}", input.body, err);
@@ -94,10 +94,10 @@ fn my_handler(input: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, Ha
     }
 }
 
-fn respond(m: &Message, headers: &InHeaders) -> Result<ApiGatewayOutput, HandlerError> {
+fn respond(m: &InBody, headers: &InHeaders) -> Result<ApiGatewayOutput, HandlerError> {
     match m {
-        Message::CustomEvent(e) =>  Ok(first_name_response(e)),
-        Message::SlackChallenge(e) => slack_challenge_response(e, &headers)
+        InBody::CustomEvent(e) =>  Ok(first_name_response(e)),
+        InBody::SlackChallenge(e) => slack_challenge_response(e, &headers)
     }
 }
 

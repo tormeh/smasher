@@ -16,6 +16,7 @@ simple-error = "0.2.1"
 rustc-serialize = "0.3.24"
 hmac = "0.7.1"
 sha2 = "0.8.1"
+reqwest = { version = "0.10.4", features = ["blocking", "json"] }
 
 [[bin]]
 name = "bootstrap"

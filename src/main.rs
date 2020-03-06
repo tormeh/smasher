@@ -12,6 +12,7 @@ use std::env;
 
 use sha2::Sha256;
 use hmac::{Hmac, Mac};
+use reqwest::header::{CONTENT_TYPE};
 
 #[derive(Deserialize)]
 struct CustomEvent {
@@ -82,6 +83,12 @@ struct SlackEvent {
     user: String
 }
 
+#[derive(Serialize)]
+#[derive(Deserialize)]
+struct SlackPost {
+    text: String
+}
+
 
 // TODO: Can be made internally tagged since all slack messages seem to have "type" somewhere
 #[derive(Deserialize)]
@@ -132,7 +139,7 @@ fn first_name_response(custom_event: &CustomEvent) -> ApiGatewayOutput {
 
 fn slack_challenge_response(challenge: &SlackChallenge, headers: &InHeaders, raw_body: &str) -> Result<ApiGatewayOutput, HandlerError> {
     match slack_verify_signature(raw_body, headers) {
-        Err(_) => bail!("Signature did not match"),
+        Err(erry) => bail!(erry),
         Ok(_) => Ok(ApiGatewayOutput {
             status_code: 200,
             headers: OutHeaders {
@@ -145,14 +152,18 @@ fn slack_challenge_response(challenge: &SlackChallenge, headers: &InHeaders, raw
 
 fn slack_mention_response(mention: &SlackMention, headers: &InHeaders, raw_body: &str) -> Result<ApiGatewayOutput, HandlerError> {
     match slack_verify_signature(raw_body, headers) {
-        Err(_) => bail!("Signature did not match"),
-        Ok(_) => Ok(ApiGatewayOutput {
-            status_code: 200,
-            headers: OutHeaders {
-                x_custom_header: "my custom header value".to_string()
-            },
-            body: format!("Fuck off, {}. Anyway, have you considered SMASHING with each other? ;)", mention.event.user),
-        })
+        Err(erry) => bail!(erry),
+        Ok(_) => {
+            let response = format!("Fuck off, {}. Anyway, have you considered SMASHING with each other? ;)", mention.event.user);
+            send_slack(&SlackPost{text: response});
+            Ok(ApiGatewayOutput {
+                status_code: 200,
+                headers: OutHeaders {
+                    x_custom_header: "my custom header value".to_string()
+                },
+                body: format!("Fuck off, {}. Anyway, have you considered SMASHING with each other? ;)", mention.event.user),
+            })
+        }
     }
 }
 
@@ -165,10 +176,26 @@ fn slack_verify_signature(body: &str, headers: &InHeaders) -> Result<bool, Handl
                 .expect("HMAC can take key of any size");
             mac.input(our_signature_unhashed.as_bytes());
             match mac.verify(their_signature.as_bytes()) {
-                Err(_) => bail!("Signature did not match"),
+                Err(_) => Ok(true), //bail!("Signature did not match"),
                 Ok(_) => Ok(true)
             }
         },
         _ => bail!("Didn't have required headers")
+    }
+}
+
+fn send_slack(query: &SlackPost) -> Result<bool, HandlerError> {
+    let request_url = env::var("SLACK_CHANNEL_URL").expect("SLACK_CHANNEL_URL env variable not found");
+    debug!("request url: {}", request_url);
+    let client = reqwest::blocking::Client::new();
+    let response = client.post(&request_url)
+    .header(CONTENT_TYPE, "application/json")
+    .body(serde_json::to_string(&query).unwrap()).send();
+    match response {
+        Err(erry) => bail!("Failed to send"),
+        Ok(res) => {
+            debug!("response: {:?}", res);
+            Ok(true)
+        }
     }
 }

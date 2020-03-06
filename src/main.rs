@@ -16,6 +16,7 @@ struct CustomEvent {
 #[derive(Serialize)]
 struct ApiGatewayInput {
     body: String,
+    headers: InHeaders,
     #[serde(rename = "httpMethod")]
     http_method: String,
     #[serde(rename = "isBase64Encoded")]
@@ -28,7 +29,7 @@ struct ApiGatewayInput {
 struct ApiGatewayOutput {
     #[serde(rename = "statusCode")]
     status_code: i32,
-    headers: Headers,
+    headers: OutHeaders,
     body: String,
 }
 
@@ -38,10 +39,32 @@ struct Body {
 }
 
 #[derive(Serialize)]
-struct Headers {
+#[derive(Deserialize)]
+struct InHeaders {
+    #[serde(rename = "X-Slack-Signature")]
+    slack_signature: Option<String>
+}
+
+#[derive(Serialize)]
+struct OutHeaders {
     #[serde(rename = "x-custom-header")]
     x_custom_header: String
 }
+
+#[derive(Deserialize)]
+struct SlackChallenge {
+    token: String,
+    challenge: String,
+    r#type: String
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Message {
+    CustomEvent(CustomEvent),
+    SlackChallenge(SlackChallenge),
+}
+
 
 fn main() -> Result<(), Box<dyn Error>> {
     simple_logger::init_with_level(log::Level::Debug)?;
@@ -52,21 +75,39 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn my_handler(input: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
     debug!("We received: {:?}", input.body);
-    match serde_json::from_str::<CustomEvent>(&input.body) {
-        Ok(custom_event) => {
-            let out_body = Body{message: format!("Hello, {}. Ready for some, ughhhhhhnfff...., SMASH?", custom_event.first_name)};
-
-            Ok(ApiGatewayOutput {
-                status_code: 200,
-                headers: Headers {
-                    x_custom_header: "my custom header value".to_string()
-                },
-                body: serde_json::to_string(&out_body).unwrap(),
-            })
-        },
+    match serde_json::from_str::<Message>(&input.body) {
+        Ok(message) => Ok(respond(message)),
         Err(err) => {
             error!("Couldn't parse: {}. Got: {}", input.body, err);
             bail!("We fukd");
         }
+    }
+}
+
+fn respond(m: Message) -> ApiGatewayOutput {
+    match m {
+        Message::CustomEvent(e) =>  first_name_response(e),
+        Message::SlackChallenge(e) => slack_challenge_response(e)
+    }
+}
+
+fn first_name_response(custom_event: CustomEvent) -> ApiGatewayOutput {
+    let out_body = Body{message: format!("Hello, {}. Ready for some, ughhhhhhnfff...., SMASH?", custom_event.first_name)};
+    ApiGatewayOutput {
+        status_code: 200,
+        headers: OutHeaders {
+            x_custom_header: "my custom header value".to_string()
+        },
+        body: serde_json::to_string(&out_body).unwrap(),
+    }
+}
+
+fn slack_challenge_response(challenge: SlackChallenge) -> ApiGatewayOutput {
+    ApiGatewayOutput {
+        status_code: 200,
+        headers: OutHeaders {
+            x_custom_header: "my custom header value".to_string()
+        },
+        body: challenge.challenge,
     }
 }

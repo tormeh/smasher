@@ -13,6 +13,7 @@ serde_derive = "1.0.104"
 log = "0.4.8"
 simple_logger = "1.6.0"
 simple-error = "0.2.1"
+rustc-serialize = "0.3.24"
 
 [[bin]]
 name = "bootstrap"

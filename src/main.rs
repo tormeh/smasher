@@ -1,3 +1,6 @@
+extern crate hmac;
+extern crate sha2;
+
 use std::error::Error;
 
 use lambda_runtime::{error::HandlerError, lambda, Context};
@@ -5,6 +8,10 @@ use log::{self, error, debug};
 use serde_derive::{Deserialize, Serialize};
 use simple_error::bail;
 use simple_logger;
+use std::env;
+
+use sha2::Sha256;
+use hmac::{Hmac, Mac};
 
 #[derive(Deserialize)]
 struct CustomEvent {
@@ -42,7 +49,9 @@ struct Body {
 #[derive(Deserialize)]
 struct InHeaders {
     #[serde(rename = "X-Slack-Signature")]
-    slack_signature: Option<String>
+    slack_signature: Option<String>,
+    #[serde(rename = "X-Slack-Request-Timestamp")]
+    slack_timestamp: Option<String>
 }
 
 #[derive(Serialize)]
@@ -51,6 +60,7 @@ struct OutHeaders {
     x_custom_header: String
 }
 
+#[derive(Serialize)]
 #[derive(Deserialize)]
 struct SlackChallenge {
     token: String,
@@ -76,7 +86,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn my_handler(input: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
     debug!("We received: {:?}", input.body);
     match serde_json::from_str::<Message>(&input.body) {
-        Ok(message) => Ok(respond(&message)),
+        Ok(message) => respond(&message, &input.headers),
         Err(err) => {
             error!("Couldn't parse: {}. Got: {}", input.body, err);
             bail!("We fukd");
@@ -84,10 +94,10 @@ fn my_handler(input: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, Ha
     }
 }
 
-fn respond(m: &Message) -> ApiGatewayOutput {
+fn respond(m: &Message, headers: &InHeaders) -> Result<ApiGatewayOutput, HandlerError> {
     match m {
-        Message::CustomEvent(e) =>  first_name_response(e),
-        Message::SlackChallenge(e) => slack_challenge_response(e)
+        Message::CustomEvent(e) =>  Ok(first_name_response(e)),
+        Message::SlackChallenge(e) => slack_challenge_response(e, &headers)
     }
 }
 
@@ -102,12 +112,25 @@ fn first_name_response(custom_event: &CustomEvent) -> ApiGatewayOutput {
     }
 }
 
-fn slack_challenge_response(challenge: &SlackChallenge) -> ApiGatewayOutput {
-    ApiGatewayOutput {
-        status_code: 200,
-        headers: OutHeaders {
-            x_custom_header: "my custom header value".to_string()
+fn slack_challenge_response(challenge: &SlackChallenge, headers: &InHeaders) -> Result<ApiGatewayOutput, HandlerError> {
+    match (&headers.slack_signature, &headers.slack_timestamp) {
+        (Some(their_signature), Some(timestamp)) => {
+            let our_signature_unhashed = "v0".to_owned() + &timestamp + &serde_json::to_string(&challenge).unwrap();
+            let signing_secret = env::var("SLACK_SECRET").expect("SLACK_SECRET env variable not found");
+            let mut mac = Hmac::<Sha256>::new_varkey(signing_secret.as_bytes())
+                .expect("HMAC can take key of any size");
+            mac.input(our_signature_unhashed.as_bytes());
+            match mac.verify(their_signature.as_bytes()) {
+                Err(_) => bail!("Signature did not match"),
+                Ok(_) => Ok(ApiGatewayOutput {
+                    status_code: 200,
+                    headers: OutHeaders {
+                        x_custom_header: "my custom header value".to_string()
+                    },
+                    body: challenge.challenge.to_owned(),
+                })
+            }
         },
-        body: challenge.challenge.to_owned(),
+        _ => bail!("Didn't have required headers")
     }
 }

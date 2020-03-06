@@ -5,8 +5,8 @@
 
 rm *.zip -f
 #export OPENSSL_DIR=/usr
-#export OPENSSL_LIB_DIR=/usr/include/
-#export OPENSSL_INCLUDE_DIR=/usr/lib/x86_64-linux-gnu/
+export OPENSSL_INCLUDE_DIR=/usr/include/
+export OPENSSL_LIB_DIR=/usr/lib/x86_64-linux-gnu/
 #cargo build --release --target x86_64-unknown-linux-musl
-cross build --release --target x86_64-unknown-linux-musl
+cargo build --release --target x86_64-unknown-linux-gnu
 zip -j rust.zip ./target/x86_64-unknown-linux-musl/release/bootstrap

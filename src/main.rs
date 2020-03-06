@@ -50,15 +50,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn my_handler(e: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
-    debug!("We received: {:?}", e.body);
-    let body = Body{message: "Ready for some, ughhhhhhnfff...., SMASH?".to_string()};
+fn my_handler(input: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
+    debug!("We received: {:?}", input.body);
+    match serde_json::from_str::<CustomEvent>(&input.body) {
+        Ok(custom_event) => {
+            let out_body = Body{message: format!("Hello, {}. Ready for some, ughhhhhhnfff...., SMASH?", custom_event.first_name)};
 
-    Ok(ApiGatewayOutput {
-        status_code: 200,
-        headers: Headers {
-            x_custom_header: "my custom header value".to_string()
+            Ok(ApiGatewayOutput {
+                status_code: 200,
+                headers: Headers {
+                    x_custom_header: "my custom header value".to_string()
+                },
+                body: serde_json::to_string(&out_body).unwrap(),
+            })
         },
-        body: serde_json::to_string(&body).unwrap(),
-    })
+        Err(err) => {
+            error!("Couldn't parse: {}. Got: {}", input.body, err);
+            bail!("We fukd");
+        }
+    }
 }

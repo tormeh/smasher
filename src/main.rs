@@ -44,8 +44,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn my_handler(e: serde_json::value::Value, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
-    debug!("We received: {:?}", e);
+fn my_handler(e: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
+    debug!("We received: {:?}", e.body);
     let body = Body{message: "Ready for some, ughhhhhhnfff...., SMASH?".to_string()};
 
     Ok(ApiGatewayOutput {

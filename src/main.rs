@@ -16,6 +16,12 @@ struct CustomEvent {
 #[derive(Serialize)]
 struct ApiGatewayInput {
     body: String,
+    #[serde(rename = "httpMethod")]
+    http_method: String,
+    #[serde(rename = "isBase64Encoded")]
+    is_base64_encoded: bool,
+    path: String,
+    resource: String
 }
 
 #[derive(Serialize)]

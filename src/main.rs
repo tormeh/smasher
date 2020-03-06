@@ -12,6 +12,12 @@ struct CustomEvent {
     first_name: String,
 }
 
+#[derive(Deserialize)]
+#[derive(Serialize)]
+struct ApiGatewayInput {
+    body: String,
+}
+
 #[derive(Serialize)]
 struct ApiGatewayOutput {
     #[serde(rename = "statusCode")]
@@ -40,26 +46,13 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 fn my_handler(e: serde_json::value::Value, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
     debug!("We received: {:?}", e);
+    let body = Body{message: "Ready for some, ughhhhhhnfff...., SMASH?".to_string()};
 
     Ok(ApiGatewayOutput {
         status_code: 200,
         headers: Headers {
             x_custom_header: "my custom header value".to_string()
         },
-        body: format!("{}", ""),
+        body: serde_json::to_string(&body).unwrap(),
     })
-}
-
-fn serialize_body(body: Body) -> String {
-    serde_json::to_string(&body).unwrap()
-}
-
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn serialize_body_works() {
-        assert_eq!(serialize_body(Body{message: "Ready for some, ughhhhhhnfff...., SMASH?".to_string()}), format!("{{\"message\":\"Ready for some, ughhhhhhnfff...., SMASH?\"}}"));
-    }
 }

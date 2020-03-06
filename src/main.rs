@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 fn my_handler(input: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, HandlerError> {
     debug!("We received: {:?}", input.body);
     match serde_json::from_str::<Message>(&input.body) {
-        Ok(message) => Ok(respond(message)),
+        Ok(message) => Ok(respond(&message)),
         Err(err) => {
             error!("Couldn't parse: {}. Got: {}", input.body, err);
             bail!("We fukd");
@@ -84,14 +84,14 @@ fn my_handler(input: ApiGatewayInput, c: Context) -> Result<ApiGatewayOutput, Ha
     }
 }
 
-fn respond(m: Message) -> ApiGatewayOutput {
+fn respond(m: &Message) -> ApiGatewayOutput {
     match m {
         Message::CustomEvent(e) =>  first_name_response(e),
         Message::SlackChallenge(e) => slack_challenge_response(e)
     }
 }
 
-fn first_name_response(custom_event: CustomEvent) -> ApiGatewayOutput {
+fn first_name_response(custom_event: &CustomEvent) -> ApiGatewayOutput {
     let out_body = Body{message: format!("Hello, {}. Ready for some, ughhhhhhnfff...., SMASH?", custom_event.first_name)};
     ApiGatewayOutput {
         status_code: 200,
@@ -102,12 +102,12 @@ fn first_name_response(custom_event: CustomEvent) -> ApiGatewayOutput {
     }
 }
 
-fn slack_challenge_response(challenge: SlackChallenge) -> ApiGatewayOutput {
+fn slack_challenge_response(challenge: &SlackChallenge) -> ApiGatewayOutput {
     ApiGatewayOutput {
         status_code: 200,
         headers: OutHeaders {
             x_custom_header: "my custom header value".to_string()
         },
-        body: challenge.challenge,
+        body: challenge.challenge.to_owned(),
     }
 }

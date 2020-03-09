@@ -127,6 +127,7 @@ fn respond(m: &InBody, headers: &InHeaders, raw_body: &str) -> Result<ApiGateway
 }
 
 fn first_name_response(custom_event: &CustomEvent) -> ApiGatewayOutput {
+    debug!("Received first name request");
     let out_body = Body{message: format!("Hello, {}. Ready for some, ughhhhhhnfff...., SMASH?", custom_event.first_name)};
     ApiGatewayOutput {
         status_code: 200,
@@ -138,6 +139,7 @@ fn first_name_response(custom_event: &CustomEvent) -> ApiGatewayOutput {
 }
 
 fn slack_challenge_response(challenge: &SlackChallenge, headers: &InHeaders, raw_body: &str) -> Result<ApiGatewayOutput, HandlerError> {
+    debug!("Received slack challenge");
     match slack_verify_signature(raw_body, headers) {
         Err(erry) => bail!(erry),
         Ok(_) => Ok(ApiGatewayOutput {
@@ -151,18 +153,25 @@ fn slack_challenge_response(challenge: &SlackChallenge, headers: &InHeaders, raw
 }
 
 fn slack_mention_response(mention: &SlackMention, headers: &InHeaders, raw_body: &str) -> Result<ApiGatewayOutput, HandlerError> {
+    debug!("Received slack mention");
     match slack_verify_signature(raw_body, headers) {
         Err(erry) => bail!(erry),
         Ok(_) => {
+            debug!("Signature approved");
             let response = format!("Fuck off, {}. Anyway, have you considered SMASHING with each other? ;)", mention.event.user);
-            send_slack(&SlackPost{text: response});
-            Ok(ApiGatewayOutput {
-                status_code: 200,
-                headers: OutHeaders {
-                    x_custom_header: "my custom header value".to_string()
+            match send_slack(&SlackPost{text: response}) {
+                Ok(_) => {
+                    debug!("We sent the message");
+                    Ok(ApiGatewayOutput {
+                        status_code: 200,
+                        headers: OutHeaders {
+                            x_custom_header: "my custom header value".to_string()
+                        },
+                        body: format!("Fuck off, {}. Anyway, have you considered SMASHING with each other? ;)", mention.event.user),
+                    })
                 },
-                body: format!("Fuck off, {}. Anyway, have you considered SMASHING with each other? ;)", mention.event.user),
-            })
+                Err(_) => bail!("Fuck")
+            }
         }
     }
 }
